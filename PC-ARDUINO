@@ -1,0 +1,105 @@
+const int   PULS[2] = {22, 23};
+const int   DIR[2] = {48,49}, DIR_LED[2] = {30, 39};
+int estado = 1;
+int checksum1 = 0;
+int checksum2= 0;
+int checksum3= 0;
+int checksum4= 0;
+int checksum5= 0;
+int checksumTotal= 0;
+
+
+
+ void comunicacion(){
+  bool a[2]={0,0};
+   for(int i=0; i<2; i++)
+    if(digitalRead(PULS[i])){a[i]=1;delay(200);}
+   if(a[1] && a[0]){
+	   Serial.write(0x55);
+	   estado=1;
+	   parp_led(100);
+	   checksum1=0x55;
+	   checksumTotal=checksum1+checksum2*48+checksum3*49+checksum4;
+	   Serial.write(checksumTotal);
+	   }
+   else if(a[1]) Serial.write(DIR[1]); checksum2++;
+   else if(a[0]) Serial.write(DIR[0]); checksum3++;
+  
+  if(Serial.available()){
+    int n = Serial.read();
+    switch(n){
+      case 48: digitalWrite(LED_BUILTIN, 0); 
+	  checksum2++;
+	  break;
+      case 49: digitalWrite(LED_BUILTIN, 1); 
+	  checksum3++;
+	  break;
+      case 0x55: 
+	  estado=2;
+	  parp_led(100); 
+	  checksum1 = n;
+	  break;
+      default:
+      break;
+    }
+  }
+}
+
+void parp_led(int t){
+  for(int i = 0; i < 10; i++){
+    digitalWrite(LED_BUILTIN, i%2);
+	delay(t);
+  }
+}
+
+void abrir_com(){
+  if(Serial.available()){
+    int men = Serial.read(); 
+    if(men == 0xAA) {
+		estado=2; parp_led(100);
+		checksum4 = men;
+		}
+    }
+  if(digitalRead(PULS[0])){
+	Serial.write(0xAA);
+	checksum4=0xAA;
+	estado=2;
+	parp_led(100);}
+}
+
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
+  estado = 1;
+}
+
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  switch(estado){
+    case 1: //standby
+      abrir_com();
+    break;
+    case 2:  //comunicacion
+      comunicacion();
+     break;
+	case 3;
+	checksumTotal=checksum1+checksum2*48+checksum3*49+checksum4;
+	if(Serial.available()){
+    int cst = Serial.read();
+	  if(checksumTotal==cst)
+	  {
+		estado=1;
+	  }
+	  else
+	  {
+		estado=2;
+	  }
+	}
+    default:
+     break;
+  }
+}
